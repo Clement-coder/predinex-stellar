@@ -19,6 +19,7 @@ import { useWalletAccount } from '@/lib/hooks/useWalletAccount';
 import { useTransactionToast } from '@/lib/hooks/useTransactionToast';
 import type { TxStage } from '@/app/lib/soroban-transaction-service';
 import { useI18n } from '@/app/lib/i18n';
+import { BetConfirmationDialog } from '@/components/BetConfirmationDialog';
 import { formatOdds, formatPrice } from '@/app/lib/formatting';
 import Tooltip from '@/components/ui/Tooltip';
 
@@ -46,6 +47,7 @@ export default function BettingSection({
     resolve: (v: boolean) => void;
   } | null>(null);
   const [stage, setStage] = useState<TxStage>("idle");
+  const [pendingOutcome, setPendingOutcome] = useState<number | null>(null);
 
   const STROOPS_PER_XLM = 10_000_000;
 
@@ -136,6 +138,19 @@ export default function BettingSection({
     .filter(Boolean)
     .join(' ');
 
+  const requestBet = (outcome: number) => {
+    if (!isConnected) {
+      connect();
+      return;
+    }
+
+    if (isAmountInvalid) {
+      setAmountTouched(true);
+      return;
+    }
+    setPendingOutcome(outcome);
+  };
+
   const placeBet = async (outcome: number) => {
     if (!isConnected) {
       connect();
@@ -195,6 +210,7 @@ export default function BettingSection({
       setBetAmount("");
       setStage("idle");
       setFeePrompt(null);
+      setPendingOutcome(null);
       onBetSuccess?.(outcome, amountStroops);
     } catch (error) {
       log.error("[BettingSection] Bet transaction failed:", error);
@@ -237,15 +253,39 @@ export default function BettingSection({
   }
 
   const totalPool = pool.totalA + pool.totalB;
-  // Keep the numeric values for the bar widths and the formatted strings for
-  // display so a value is never rendered with a doubled "%" suffix.
-  const oddsAValue = totalPool > 0 ? (pool.totalA / totalPool) * 100 : 50;
-  const oddsBValue = totalPool > 0 ? (pool.totalB / totalPool) * 100 : 50;
-  const oddsA = formatOdds(oddsAValue);
-  const oddsB = formatOdds(oddsBValue);
+  const oddsA =
+    totalPool > 0 ? ((pool.totalA / totalPool) * 100).toFixed(1) : "50.0";
+  const oddsB =
+    totalPool > 0 ? ((pool.totalB / totalPool) * 100).toFixed(1) : "50.0";
+  const pendingOdds = pendingOutcome === 0 ? oddsA : oddsB;
+  const pendingAmount = parseFloat(betAmount);
+  const pendingSelectedOutcome =
+    pendingOutcome === 0 ? pool.outcomeA : pool.outcomeB;
+  const selectedPoolTotal =
+    pendingOutcome === 0 ? pool.totalA : pendingOutcome === 1 ? pool.totalB : 0;
+  const potentialWinnings =
+    Number.isFinite(pendingAmount) && selectedPoolTotal > 0
+      ? ((pendingAmount * STROOPS_PER_XLM * (totalPool + pendingAmount * STROOPS_PER_XLM)) /
+          (selectedPoolTotal + pendingAmount * STROOPS_PER_XLM) /
+          STROOPS_PER_XLM)
+      : Number.isFinite(pendingAmount)
+        ? pendingAmount
+        : 0;
 
   return (
     <div className="bg-muted/30 p-6 rounded-xl border border-border space-y-4">
+      {pendingOutcome !== null && (
+        <BetConfirmationDialog
+          isOpen
+          onClose={() => setPendingOutcome(null)}
+          onConfirm={() => void placeBet(pendingOutcome)}
+          betAmount={pendingAmount.toFixed(2)}
+          selectedOutcome={pendingSelectedOutcome}
+          potentialWinnings={potentialWinnings.toFixed(2)}
+          currentOdds={parseFloat(pendingOdds)}
+          isProcessing={isBetting}
+        />
+      )}
       <h3 className="font-bold">{t('betting.sectionTitle')}</h3>
 
       {/* Current odds */}
@@ -434,7 +474,7 @@ export default function BettingSection({
         aria-label={t('betting.sectionTitle')}
       >
         <button
-          onClick={() => placeBet(0)}
+          onClick={() => requestBet(0)}
           disabled={
             isBetting ||
             isAmountInvalid ||
@@ -455,7 +495,7 @@ export default function BettingSection({
           )}
         </button>
         <button
-          onClick={() => placeBet(1)}
+          onClick={() => requestBet(1)}
           disabled={
             isBetting ||
             isAmountInvalid ||

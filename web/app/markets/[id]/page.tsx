@@ -23,6 +23,11 @@ import ShareButton from "../../../components/ShareButton";
 import { TruncatedAddress } from "../../../components/TruncatedAddress";
 import { usePoolFavorites } from "../../lib/hooks/usePoolFavorites";
 import { useTransactionToast } from '@/lib/hooks/useTransactionToast';
+import { stroopsToUnits, TOKEN_SYMBOL } from '@/app/lib/formatting';
+import { parsePoolId } from '@/app/lib/market-types';
+import DepthChart from '@/components/DepthChart';
+import SettlementStatusBadge from '@/components/SettlementStatusBadge';
+import { formatMarketDeadline } from '@/app/lib/formatting';
 import {
   formatOdds,
   formatPayout,
@@ -334,6 +339,12 @@ export default function PoolDetails({ params }: { params: Promise<{ id: string }
                                     : pool.status === 'disputed' ? 'Disputed'
                                     : 'Active'}
                             </span>
+                            {(pool.settled || pool.status === 'disputed') && (
+                                <SettlementStatusBadge
+                                    status={pool.status === 'disputed' ? 'disputed' : 'settled'}
+                                    payoutStatus={pool.settlementStatus}
+                                />
+                            )}
                         </div>
                     </div>
 
@@ -362,6 +373,16 @@ export default function PoolDetails({ params }: { params: Promise<{ id: string }
                                 secondsRemaining={secondsUntil(pool.expiry)}
                                 settled={pool.settled}
                             />
+                            <time
+                                className="mt-1 block text-xs text-muted-foreground"
+                                dateTime={
+                                    Number.isFinite(pool.expiry) && pool.expiry > 0
+                                        ? new Date(pool.expiry * 1000).toISOString()
+                                        : undefined
+                                }
+                            >
+                                {formatMarketDeadline(pool.expiry)}
+                            </time>
                         </div>
                     </div>
 

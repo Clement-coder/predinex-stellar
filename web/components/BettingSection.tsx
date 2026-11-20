@@ -309,14 +309,6 @@ export default function BettingSection({
       // Keep the raw error behind a details toggle
       setRawError(errorMessage);
       setPendingOutcome(null);
-      onBetSuccess?.(outcome, amountStroops);
-    } catch (error) {
-      log.error("[BettingSection] Bet transaction failed:", error);
-      showError(error);
-      setBetError({ outcome, message: parseContractError(error) });
-      setPendingOutcome(null);
-      setStage("idle");
-      setFeePrompt(null);
     } finally {
       setIsBetting(false);
     }

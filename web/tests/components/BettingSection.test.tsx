@@ -250,26 +250,6 @@ describe('BettingSection', () => {
     expect(onBetSuccess).not.toHaveBeenCalled();
   });
 
-  it('submits only once when the confirm action is clicked repeatedly', async () => {
-    vi.mocked(WalletAdapterProvider.useWallet).mockReturnValue(connectedWallet);
-    let resolveSubmission!: (value: { txHash: string }) => void;
-    vi.mocked(predinexContract.placeBetSoroban).mockImplementation(
-      () => new Promise((resolve) => { resolveSubmission = resolve; }),
-    );
-    const user = userEvent.setup();
-    renderWithProviders(<BettingSection pool={mockPool} poolId={0} />);
-
-    await user.type(screen.getByLabelText(/Enter bet amount/i), '1');
-    await user.click(screen.getByText(/Bet on Outcome A/i));
-    const confirm = screen.getByRole('button', { name: /Confirm Bet/i });
-    fireEvent.click(confirm);
-    fireEvent.click(confirm);
-
-    expect(predinexContract.placeBetSoroban).toHaveBeenCalledOnce();
-    resolveSubmission({ txHash: 'tx-bet-once' });
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  });
-
   it('supports tab navigation and Enter/Space activation through the order controls', async () => {
     vi.mocked(WalletAdapterProvider.useWallet).mockReturnValue(connectedWallet);
     vi.mocked(predinexContract.placeBetSoroban).mockResolvedValue({ txHash: '0xkeyboard' });

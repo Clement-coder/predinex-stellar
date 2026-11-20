@@ -109,6 +109,18 @@ export default function PoolDetails({ params }: { params: Promise<{ id: string }
         }
 
         const loadPool = async () => {
+            // Check the client-side pool cache before hitting the RPC.
+            // On repeat visits or back-navigations the cache is typically fresh,
+            // so we can skip the network round-trip entirely (fixes #1633).
+            const { pool: cachedPool, isFresh } = readPoolCache(poolId);
+            if (isFresh && cachedPool) {
+                // PoolData (cache) and Pool (adapter) share the same contract fields;
+                // the only shape difference is poolId vs id.
+                setPool({ ...cachedPool, id: cachedPool.poolId } as unknown as Pool);
+                setIsLoading(false);
+                return;
+            }
+
             setIsLoading(true);
             setError(null);
             try {

@@ -2,7 +2,7 @@
 import { createScopedLogger } from "@/app/lib/logger";
 const log = createScopedLogger("BettingSection");
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Loader2, Wallet, AlertCircle, Lock, Clock } from 'lucide-react';
 import { Loader2, Wallet, AlertCircle, Info } from 'lucide-react';
 import type { Pool } from '@/app/lib/adapters/types';
@@ -44,6 +44,7 @@ export default function BettingSection({
   const [betAmount, setBetAmount] = useState("");
   const [amountTouched, setAmountTouched] = useState(false);
   const [isBetting, setIsBetting] = useState(false);
+  const betSubmissionInFlightRef = useRef(false);
   const [feePrompt, setFeePrompt] = useState<{
     feeStroops: string;
     resolve: (v: boolean) => void;
@@ -224,6 +225,9 @@ export default function BettingSection({
   };
 
   const placeBet = async (outcome: number) => {
+    // State updates do not disable the button until React renders again. Lock
+    // synchronously so rapid confirm clicks cannot submit the same bet twice.
+    if (betSubmissionInFlightRef.current) return;
     if (!isConnected) {
       connect();
       return;
@@ -256,6 +260,7 @@ export default function BettingSection({
       return;
     }
 
+    betSubmissionInFlightRef.current = true;
     setIsBetting(true);
     setBetError(null);
 
@@ -310,6 +315,7 @@ export default function BettingSection({
       setRawError(errorMessage);
       setPendingOutcome(null);
     } finally {
+      betSubmissionInFlightRef.current = false;
       setIsBetting(false);
     }
   };

@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from '@axe-core/react';
 import BettingSection from '@/components/BettingSection';
@@ -248,6 +248,26 @@ describe('BettingSection', () => {
 
     await waitFor(() => expect(predinexContract.placeBetSoroban).toHaveBeenCalledOnce());
     expect(onBetSuccess).not.toHaveBeenCalled();
+  });
+
+  it('submits only once when the confirm action is clicked repeatedly', async () => {
+    vi.mocked(WalletAdapterProvider.useWallet).mockReturnValue(connectedWallet);
+    let resolveSubmission!: (value: { txHash: string }) => void;
+    vi.mocked(predinexContract.placeBetSoroban).mockImplementation(
+      () => new Promise((resolve) => { resolveSubmission = resolve; }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<BettingSection pool={mockPool} poolId={0} />);
+
+    await user.type(screen.getByLabelText(/Enter bet amount/i), '1');
+    await user.click(screen.getByText(/Bet on Outcome A/i));
+    const confirm = screen.getByRole('button', { name: /Confirm Bet/i });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    expect(predinexContract.placeBetSoroban).toHaveBeenCalledOnce();
+    resolveSubmission({ txHash: 'tx-bet-once' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
   it('supports tab navigation and Enter/Space activation through the order controls', async () => {

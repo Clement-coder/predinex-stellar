@@ -233,6 +233,23 @@ describe('BettingSection', () => {
     });
   });
 
+  it('does not publish an optimistic position when the transaction fails', async () => {
+    vi.mocked(WalletAdapterProvider.useWallet).mockReturnValue(connectedWallet);
+    vi.mocked(predinexContract.placeBetSoroban).mockRejectedValue(new Error('Transaction failed'));
+    const onBetSuccess = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <BettingSection pool={mockPool} poolId={0} onBetSuccess={onBetSuccess} />,
+    );
+
+    await user.type(screen.getByLabelText(/Enter bet amount/i), '1');
+    await user.click(screen.getByText(/Bet on Outcome A/i));
+    await user.click(screen.getByRole('button', { name: /Confirm Bet/i }));
+
+    await waitFor(() => expect(predinexContract.placeBetSoroban).toHaveBeenCalledOnce());
+    expect(onBetSuccess).not.toHaveBeenCalled();
+  });
+
   it('supports tab navigation and Enter/Space activation through the order controls', async () => {
     vi.mocked(WalletAdapterProvider.useWallet).mockReturnValue(connectedWallet);
     vi.mocked(predinexContract.placeBetSoroban).mockResolvedValue({ txHash: '0xkeyboard' });
